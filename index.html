@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多智能体协作评估系统 | Multi-Agent Application</title>
+    <style>
+        :root {
+            --bg-color: #f7fbf8;
+            --primary-green: #81c784;
+            --accent-green: #4caf50;
+            --light-green-glow: rgba(129, 199, 132, 0.4);
+            --surface-white: rgba(255, 255, 255, 0.7);
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --border-color: rgba(129, 199, 132, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .ambient-light {
+            position: absolute;
+            width: 60vw;
+            height: 60vw;
+            background: radial-gradient(circle, var(--light-green-glow) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: float 15s infinite ease-in-out alternate;
+            z-index: -1;
+            filter: blur(80px);
+        }
+        .ambient-light.two {
+            top: -20%;
+            right: -10%;
+            width: 40vw;
+            height: 40vw;
+            animation-delay: -5s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(10%, 10%) scale(1.1); }
+        }
+
+        #trigger-btn {
+            padding: 16px 40px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            color: #fff;
+            background: linear-gradient(135deg, var(--primary-green), var(--accent-green));
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px var(--light-green-glow);
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            position: relative;
+            z-index: 10;
+        }
+
+        #trigger-btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 15px 40px var(--light-green-glow);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(247, 251, 248, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.6s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .glass-panel {
+            background: var(--surface-white);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            padding: 40px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.05);
+            transform: translateY(40px) scale(0.95);
+            opacity: 0;
+            transition: all 0.7s cubic-bezier(0.19, 1, 0.22, 1);
+            overflow-y: auto;
+        }
+
+        .overlay.active .glass-panel {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .panel-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .form-group { margin-bottom: 25px; }
+        .form-label { display: block; font-size: 0.9rem; margin-bottom: 8px; color: var(--text-muted); }
+        
+        .form-textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-main);
+            resize: vertical;
+            outline: none;
+        }
+        .form-textarea:focus { border-color: var(--primary-green); background: #fff; }
+
+        .analysis-terminal {
+            background: #fcfcfc;
+            border: 1px dashed var(--primary-green);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: var(--accent-green);
+            display: none;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            margin-top: 20px;
+            background: var(--text-main);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        .submit-btn:hover { background: #1a2533; }
+        .submit-btn:disabled { cursor: not-allowed; opacity: 0.8; }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(129, 199, 132, 0.5); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-light"></div>
+    <div class="ambient-light two"></div>
+
+    <button id="trigger-btn">
+        <span>初始化评估系统 (Demo)</span>
+    </button>
+
+    <div class="overlay" id="modal-overlay">
+        <div class="glass-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="status-dot"></span>
+                    Agent 驱动构建成果评估 (前端脱敏版)
+                </div>
+                <button class="close-btn" id="close-btn">&times;</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="project-desc">04 请描述你使用 Agent 构建的具体成果</label>
+                <textarea class="form-textarea" id="project-desc">项目名称：基于多Agent协作的企业级商业分析与研报生成系统
+
+我团队构建了一个深度整合大语言模型能力的自动化商业洞察与研报生成系统。该系统不仅替代了传统数据看板，更作为企业的虚拟数据科学家，通过复杂的多Agent协作架构、长链推理机制以及本地知识库的深度结合，将传统需要业务与数据分析师反复沟通数天才能完成的深度分析报告，压缩至分钟级自动输出，真正实现了企业内部从数据获取、逻辑诊断到策略输出的自动化决策闭环。
+
+一、项目解决的核心痛点
+1. 数据分析门槛高：现代商业环境瞬息万变，但一线业务人员缺乏代码或高级数据透视能力。每次取数和深度分析都需向中台提需求，导致业务决策严重滞后。
+2. 浅层数据缺洞察：传统商业智能工具只能展示静态结果如销量下降，但无法通过推理回答为什么下降以及怎么办。业务人员缺乏深度的归因分析与策略支持。
+3. 分析人效遇瓶颈：撰写一份包含跨表提取、数据清洗、逻辑推理、图表生成和文本总结的研报，耗费分析师大量时间。非标准化脑力劳动难以实现规模化产出。
+
+二、核心逻辑流与智能体协作
+本系统摒弃单模型输出模式，设计了包含四个核心智能体的协作链路，并引入自我反思机制：
+1. 意图解析智能体：接收用户模糊需求，负责长链推理的第一步：利用思维树策略，将宏观需求拆解为具体子任务树，生成标准化任务流转程序。
+2. 数据工程智能体：接管底层取数任务。结合企业表结构元数据，将子任务转化为高复杂度检索语句并执行。内置纠错机制，若报错则提取错误日志自动自我修正重写。
+3. 深度推理智能体：系统核心大脑。接收数据后采用多步推理框架，对比历史数据寻找异常波动，深度推导问题背后的根因。
+4. 审查撰写智能体：将结论转化为长篇图文报告。独立审查机制负责严密的逻辑校验和数据幻觉排查，确保绝对严谨后推送。
+
+三、落地成果与巨量消耗
+目前系统已在两百人团队全量落地。单次深度报告产出周期从五天压缩至十分钟，准确率稳定在百分之九十八以上。由于后台高频交互、纠错及庞大知识库长文本检索，日耗约五千万 Token。
+
+四、资源诉求与后续规划
+下半年我们将全面引入多模态处理能力，直接解析长篇行业报告与发布会录音。随着系统对超长上下文并发处理需求急剧攀升，预计单日消耗将破亿。急需提升额度以保障下一代架构大规模平滑上线。</textarea>
+            </div>
+
+            <div class="analysis-terminal" id="terminal"></div>
+
+            <button class="submit-btn" id="submit-btn">执行智能分析并提交</button>
+        </div>
+    </div>
+
+    <script>
+        const triggerBtn = document.getElementById('trigger-btn');
+        const closeBtn = document.getElementById('close-btn');
+        const overlay = document.getElementById('modal-overlay');
+        const submitBtn = document.getElementById('submit-btn');
+        const terminal = document.getElementById('terminal');
+
+        triggerBtn.addEventListener('click', () => overlay.classList.add('active'));
+
+        closeBtn.addEventListener('click', () => {
+            overlay.classList.remove('active');
+            terminal.style.display = 'none';
+            submitBtn.innerText = '执行智能分析并提交';
+            submitBtn.style.background = 'var(--text-main)';
+            submitBtn.disabled = false;
+        });
+
+        submitBtn.addEventListener('click', () => {
+            submitBtn.disabled = true;
+            submitBtn.innerText = '正在调用 Planner Agent 拆解任务...';
+            submitBtn.style.background = 'var(--accent-green)';
+            terminal.style.display = 'block';
+            terminal.innerHTML = "";
+            
+            const logs = [
+                "[System] 建立虚拟沙盒环境...",
+                "[Planner Agent] 提取文本特征：长链推理, 多Agent协作, Token高消耗",
+                "[Data Engineer Agent] 尝试连接本地脱敏 Schema... 成功 (200 OK)",
+                "[Analyst Agent] 评估系统架构: ReAct & Reflection (符合高优标准)",
+                "[Critic Agent] 校验防幻觉机制逻辑... 校验通过",
+                "[System] Token 消耗潜力评估: 极高 (单日预计 5000w+)",
+                "[System] 演示流程执行完毕，已打包快照。"
+            ];
+            
+            let delay = 0;
+            logs.forEach((log, index) => {
+                setTimeout(() => {
+                    terminal.innerHTML += "> " + log + "<br>";
+                    terminal.scrollTop = terminal.scrollHeight;
+                    if(index === logs.length - 1) {
+                        setTimeout(() => {
+                            submitBtn.innerText = '沙盒演示完成 (前端展示版)';
+                        }, 600);
+                    }
+                }, delay);
+                delay += 800; // 每行延迟800毫秒
+            });
+        });
+    </script>
+</body>
+</html>
